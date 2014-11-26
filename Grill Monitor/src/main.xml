@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<program xmlns="http://www.kinoma.com/kpr/1">
+
+	<!-- STYLES -->
+    <skin id="sknBackground" color="white"/>
+    <style id="stlTextLabelBlack" font="45px Arial Bold" color="black" align="center"/>
+    <!-- END STYLES -->
+    
+	<container id="CurrentContainer" left="0" right="0" top="0" height="240" active="true" skin="sknBackground">
+		<label name="CurrentTemperature" top="0" left="0" bottom="0" right="0" style="stlTextLabelBlack" string="$.temp" />
+	        <behavior>
+	            <method id="onCreate" params="label, data">
+		            <![CDATA[
+						this.data = data;
+					]]>
+				</method>                    
+	            <method id="onTimeChanged" params="container">
+	            	<![CDATA[
+	        			cc.CurrentTemperature.string = Math.round(data.temp*100)/100 + "\"";
+	            	]]>
+	            </method>
+	            <method id="onDisplayed" params="container">
+	            	<![CDATA[
+		            	container.start();
+		            	container.interval = 66;
+	         		]]>
+	         	</method>
+	        </behavior>
+	</container>
+	<!--Sensor Handlers-->
+	 <handler path="/tempResult">
+		<behavior>
+			<method id="onInvoke" params="handler, message">
+			<![CDATA[
+					var rawA2D = message.requestObject;
+					var temp = Math.round(((0.0512 * (rawA2D * 3.3 * 1000) - 20.5128) * 1.8 + 32)*100)/100;
+					sensorSmoothing(sensors.temp, temp)
+					data.temp = sensors.temp.current;
+					writePreferences(application, "sensors", sensors);
+					trace("rawA2D: "+rawA2D+"\n");
+					//Log the data
+					//logging("temp", sensors.temp.current);
+					if (sensors.temp.current > sensors.temp.max)
+						sensors.temp.max = sensors.temp.current;
+					if (sensors.temp.current < sensors.temp.min)
+						sensors.temp.min = sensors.temp.current;
+					//trace ("Min: " + sensors.temp.min + " / Max: " + sensors.temp.max + "\n");	
+			]]>
+			</method>
+		</behavior>
+	</handler> 
+	<!--End Handlers-->
+
+    <script>
+        <![CDATA[
+        	var message = new MessageWithObject("pins:configure", {
+			temp: {
+				require: "temp",
+				pins: {
+					sensor: {pin: 38}
+				}
+			}
+			});
+			      	
+			application.invoke(message);   
+			application.invoke(new MessageWithObject("pins:/temp/read?repeat=on&callback=/tempResult&interval=60000"));
+			
+			//Utility Functions
+	        var readPreferences = function(application, name, preferences) {
+	            try {
+	                var url = mergeURI(Files.preferencesDirectory, application.di + "." + name + ".json");
+	                if (Files.exists(url))
+	                    return JSON.parse(Files.readText(url));
+	            }
+	            catch(e) {
+	            }                    
+	            return preferences;
+	        }
+	        var writePreferences = function(application, name, preferences) {
+	            try {
+	                var url = mergeURI(Files.preferencesDirectory, application.di + "." + name + ".json");
+	                Files.writeText(url, JSON.stringify(preferences));
+	            }
+	            catch(e) {
+	            }
+	        }
+			var sensorSmoothing = function(sensor, value)
+			{
+				sensor.history.push(value);
+				
+				if (sensor.history.length > 3)
+					sensor.history.shift();
+				
+				var total = 0;
+				for (var i=0; i < sensor.history.length; i++)
+				{
+					total += sensor.history[i];
+				} 
+		
+				sensor.current = total / sensor.history.length  
+				//trace("Smooth: "+sensor.current+" vs. Raw: "+value+"\n");
+				writePreferences(application, "sensors", sensors);		
+			}
+			//End Utility Functions 
+			
+			//Setup object to hold sensor data and configuration
+	        var sensors = new Object();
+	        sensors.temp = new Object();
+	        sensors.temp.calibration = 0;
+	        sensors.temp.current = 1;
+	        sensors.temp.max = 0;
+	        sensors.temp.min = 99;
+	        sensors.temp.history = [];
+	        
+	        var data = new Object();
+        	data.temp = sensors.temp.current;	        
+	        
+	        var cc = new CurrentContainer(data);  
+	        application.add(cc);     
+	        
+        ]]>
+    </script>
+</program>
