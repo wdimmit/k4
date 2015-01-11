@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <program xmlns="http://www.kinoma.com/kpr/1">
-
+	<require id="wotio" path="wotio" />
+	<require id="apstrata" path="apstrata" />
+	<include path="credentials.js" />
+	
 	<!-- STYLES -->
     <skin id="sknBackground" color="white"/>
     <style id="stlTextLabelBlack" font="45px Arial Bold" color="black" align="center"/>
@@ -16,7 +19,7 @@
 				</method>                    
 	            <method id="onTimeChanged" params="container">
 	            	<![CDATA[
-	        			cc.CurrentTemperature.string = Math.round(data.temp*100)/100 + "\"";
+	        			cc.CurrentTemperature.string = Math.round(data.temp*100)/100 + "C";
 	            	]]>
 	            </method>
 	            <method id="onDisplayed" params="container">
@@ -33,24 +36,71 @@
 			<method id="onInvoke" params="handler, message">
 			<![CDATA[
 					var rawA2D = message.requestObject;
-					var temp = Math.round(((0.0512 * (rawA2D * 3.3 * 1000) - 20.5128) * 1.8 + 32)*100)/100;
+					var temp = Math.round(((0.0512 * (rawA2D * 3.3 * 1000) - 20.5128) * 1.8 + 32)*100)/100;					
+					
+					var prevTemp = sensors.temp;
 					sensorSmoothing(sensors.temp, temp)
+						
+					//if (sensors.temp < settings.tempLimit) {
+					if (1 == 1) {
+						sendAlert();
+					}
+
 					data.temp = sensors.temp.current;
 					writePreferences(application, "sensors", sensors);
-					trace("rawA2D: "+rawA2D+"\n");
+					//trace("rawA2D: "+rawA2D+"\n");
 					//Log the data
 					//logging("temp", sensors.temp.current);
-					if (sensors.temp.current > sensors.temp.max)
+					if (sensors.temp.current > sensors.temp.alarmHigh)
 						sensors.temp.max = sensors.temp.current;
-					if (sensors.temp.current < sensors.temp.min)
+					if (sensors.temp.current < sensors.temp.alarmLow)
 						sensors.temp.min = sensors.temp.current;
 					//trace ("Min: " + sensors.temp.min + " / Max: " + sensors.temp.max + "\n");	
 			]]>
 			</method>
 		</behavior>
 	</handler> 
-	<!--End Handlers-->
+	<!--End Sensor Handlers-->
 
+	<!-- Remote Handlers -->
+	<handler path="/setAlarmThresholds">
+		<behavior>
+			<method id="onInvoke" params="handler,message">
+                <![CDATA[
+                    var query = parseQuery(message.query);
+                    settings.warnLow = query.warnLow;
+                    settings.warnHigh = query.warnHigh;
+                    settings.calibration = query.calibration;
+                    writePreferences(application, "settings");
+                    message.status = 200;
+                ]]>
+            </method>
+        </behavior>   
+    </handler>
+	<handler path="/getSensors">
+		<behavior>
+			<method id="onInvoke" params="handler,message">
+                <![CDATA[
+                    trace("Hit!\n");
+                    message.responseText(JSON.stringify(sensors))
+                    message.status = 200;
+                ]]>
+            </method>
+        </behavior>      
+    </handler>	
+    
+	<!-- End Remote Handlers -->
+
+	<!-- Behaviors -->
+	<behavior id="ApplicationBehavior">
+		<method id="onLaunch" params="application"><![CDATA[
+			application.shared = true;
+		]]></method>
+		<method id="onQuit" params="application"><![CDATA[
+			application.shared = false;
+		]]></method>
+	</behavior>
+	<!-- End Behaviors -->
     <script>
         <![CDATA[
         	var message = new MessageWithObject("pins:configure", {
@@ -63,7 +113,7 @@
 			});
 			      	
 			application.invoke(message);   
-			application.invoke(new MessageWithObject("pins:/temp/read?repeat=on&callback=/tempResult&interval=60000"));
+			
 			
 			//Utility Functions
 	        var readPreferences = function(application, name, preferences) {
@@ -101,21 +151,63 @@
 				//trace("Smooth: "+sensor.current+" vs. Raw: "+value+"\n");
 				writePreferences(application, "sensors", sensors);		
 			}
+			var sendAlert = function() {
+				trace("\nSMS SENT\n");
+				
+				/*var msg = new Message('http://www.ultimatetrip.net/twilio.php');
+				msg.requestText = "body=The grill needs to be checked. Last reading was " + sensors.temp.current + "F";		
+				msg.setRequestHeader("Content-Length", msg.requestText.length);		
+				msg.method = "POST";
+				application.invoke(msg, Message.TEXT);*/
+				
+				//wot.send(["grill_sms", {body: "The grill needs to be checked! The current reading is: " + sensors.temp.current + "C!"}]);				
+			}
+			
 			//End Utility Functions 
 			
 			//Setup object to hold sensor data and configuration
-	        var sensors = new Object();
-	        sensors.temp = new Object();
-	        sensors.temp.calibration = 0;
-	        sensors.temp.current = 1;
-	        sensors.temp.max = 0;
-	        sensors.temp.min = 99;
-	        sensors.temp.history = [];
+	        sensorsProto = new Object();
+	        sensorsProto.temp = new Object();
+	        sensorsProto.temp.calibration = 0;
+	        sensorsProto.temp.current = 1;
+	        sensorsProto.temp.max = 0;
+	        sensorsProto.temp.min = 99;
+	        sensorsProto.temp.history = [];
+	        sensorsProto.temp.warnLow = 75;
+	        sensorsProto.temp.warnHigh = 100; 
+
+	        var sensors = readPreferences(application, "sensors", sensorsProto);
+	        //var sensors = new Object();
+			writePreferences(application, "sensors");
 	        
 	        var data = new Object();
         	data.temp = sensors.temp.current;	        
 	        
-	        var cc = new CurrentContainer(data);  
+	        var settingsProto = new Object()
+	        settingsProto.calibration = 0;
+	        settingsProto.warnLow = 75;
+	        settingsProto.warnHigh= 100;
+	        
+	        //var settings = readPreferences(application, "settings", settingsProto);
+	        //writePreferences(application, "settings");
+			var settings = settingsProto;
+	
+			// instantiate a new Apstrata Device management platform interface
+			aps = new apstrata.Apstrata( apstrata_api_key, apstrata_secret, wot_username, wot_token,true)
+			aps.register(function() {
+			
+				// After the Apstrata device interface has register the device with Apstrata
+				// Instantiate a new global instance of the wot.io framework.
+				wot = new wotio.Wotio(aps.feed('bipio'),true)
+				// Then connect to the bipio feed
+				wot.connect(function() {
+					application.invoke(new MessageWithObject("pins:/temp/read?repeat=on&callback=/tempResult&interval=120000"));
+				});
+			
+			});
+	          
+	        application.behavior = new ApplicationBehavior();
+	        var cc = new CurrentContainer(data);
 	        application.add(cc);     
 	        
         ]]>

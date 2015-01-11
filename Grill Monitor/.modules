@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <modulepath>
+   <modulepathentry path="apstrata" kind="project" type="lib"></modulepathentry>
+   <modulepathentry path="wotio" kind="project" type="lib"></modulepathentry>
    <modulepathentry path="src" type="src"></modulepathentry>
 </modulepath>
