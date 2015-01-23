@@ -120,10 +120,15 @@ Handler.bind("/gotAudio", {
 		    		output = newOutput;
 		    	}
 
-		    	//Call the bargraph library to update screen
+		    	
 		    	if (info.canvas != null) {
-			    	info.canvas.getContext("2d");
-			    	graph.refresh(output);
+			    	/*As of 01/22/2015 this must be called between screen redraws or 
+			    	 * the display will not update properly
+			    	 */
+		    		info.canvas.getContext("2d");
+		    	
+		    		/*Call the bargraph library to update screen*/
+		    		graph.refresh(output);
 			    }
 	        }
         }       
