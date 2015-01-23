@@ -22,12 +22,20 @@ var info = new Object();
 
 var SMOOTHING = 24;
 var UPDATESPEED = 6;
+
+/*The Create uses a variable buffer length that is a function of the 
+ * sample rate.  The DSP library requires a buffer length that is a 
+ * power of 2, hence the unusual sample rate.
+ */
 var BUFFERSIZE = 512;
 var SAMPLERATE = 8272;
 
 var DSP = new dsp.dsp();
 var CHART = new chart.chart();
+
+/*Use half the buffersize here because the incoming signal is "stereo"*/
 var FFT = new DSP.RFFT(BUFFERSIZE/2, SAMPLERATE);
+
 var graph;
 var x = 0;
 var prevOutput = [];
@@ -43,9 +51,6 @@ var smooth = new Object();
 var lastUpdated = new Date();
 
 Handler.bind("/gotAudio", {
-	onCreate: {value: function(handler, data) {
-		//this.data = data;
-	}},
 	onInvoke: function(handler, message) {
 		var response = message.requestObject;
                 
@@ -139,7 +144,8 @@ contents: [
 				this.data = data;			
 			}},
 			onDisplaying: { value: function(canvas) {
-				graph = new CHART.BarGraph(canvas.getContext("2d"), {primaryColor: '#ff0000', background: 'white', marginWidth: 0});
+				graph = new CHART.BarGraph(canvas.getContext("2d"), 
+						{primaryColor: '#ff0000', background: 'white', marginWidth: 0});
 				info.ctx = canvas.getContext("2d");
 				info.canvas = canvas;
 			}},
@@ -154,7 +160,7 @@ var model = application.behavior = Object.create(Object.prototype, {
            microphone: {
                require: "audioin",
                pins: {
-                    audio: {sampleRate: SAMPLERATE, channels: 1}
+            	   audio: {sampleRate: SAMPLERATE, channels: 1}
                }
             }}));
         data = {};
