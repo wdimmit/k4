@@ -27,8 +27,8 @@ var UPDATESPEED = 3;
  * sample rate.  The DSP library requires a buffer length that is a 
  * power of 2, hence the unusual sample rate.
  */
-var BUFFERSIZE = 1024;
-var SAMPLERATE = 16544;
+var BUFFERSIZE = 512;
+var SAMPLERATE = 8262;//16525;
 
 var DSP = new dsp.dsp();
 var CHART = new chart.chart();
@@ -82,10 +82,11 @@ Handler.bind("/gotAudio", {
 			var peak = 0;
 			for (i = 0; i < slow.peak.length; i++) { peak += slow.peak[i]; }
 			smooth.peak = Math.round(peak / slow.peak.length, 0);
-			
+				
 			/*The whole FFT / Chart thing*/
 	        if (response.samples.length == BUFFERSIZE) {
-		        var signal = [];
+       	
+	        	var signal = [];
 		        
 		        /*Convert signal from Unsigned 8bit Int to Float*/
 		        for (q = 0; q<response.samples.length; q++) {
