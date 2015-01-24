@@ -21,14 +21,14 @@ var chart = require("charts4kpr.js");
 var info = new Object();
 
 var SMOOTHING = 24;
-var UPDATESPEED = 6;
+var UPDATESPEED = 3;
 
 /*The Create uses a variable buffer length that is a function of the 
  * sample rate.  The DSP library requires a buffer length that is a 
  * power of 2, hence the unusual sample rate.
  */
-var BUFFERSIZE = 512;
-var SAMPLERATE = 8272;
+var BUFFERSIZE = 1024;
+var SAMPLERATE = 16544;
 
 var DSP = new dsp.dsp();
 var CHART = new chart.chart();
@@ -47,8 +47,6 @@ slow.average = new Array();
 slow.peak = new Array();
 
 var smooth = new Object();
-
-var lastUpdated = new Date();
 
 Handler.bind("/gotAudio", {
 	onInvoke: function(handler, message) {
@@ -108,8 +106,8 @@ Handler.bind("/gotAudio", {
 		    	prevOutput = newOutput;
 		    	newOutput = new Array();
 		    	var output = new Array();
-		    	for (q = 0; q < spectrum.length-1; q++) {
-		    		newOutput[q] = spectrum[q+1];
+		    	for (q = 0; q < spectrum.length; q++) {
+		    		newOutput[q] = spectrum[q];
 		    	}
 		    	if (prevOutput.length == newOutput.length) {
 			    	for (q = 0; q<newOutput.length; q++) {
@@ -118,18 +116,10 @@ Handler.bind("/gotAudio", {
 		    	}
 		    	else {
 		    		output = newOutput;
-		    	}
-
-		    	
-		    	if (info.canvas != null) {
-			    	/*As of 01/22/2015 this must be called between screen redraws or 
-			    	 * the display will not update properly
-			    	 */
-		    		info.canvas.getContext("2d");
-		    	
-		    		/*Call the bargraph library to update screen*/
-		    		graph.refresh(output);
-			    }
+		    	}   	
+	    		/*Call the bargraph library to update screen*/
+	    		info.output = output;
+	    		info.port.invalidate();	    		
 	        }
         }       
         
@@ -143,18 +133,18 @@ SCREEN
 var Screen = Container.template(function($) { return {
 left:0, right:0, top:0, bottom:0, active:true,
 contents: [
-	Canvas($, { anchor:"CANVAS", left:0, right:0, top:0, bottom:0,active:true,
+	Port($, { anchor:"PORT", left: 0, right: 0, top: 0, bottom: 0, active: true,
 		behavior: Object.create(Behavior.prototype, {
-			onCreate: {value: function(canvas, data) {
-				this.data = data;			
+			onCreate: { value: function(port, data) {
+				graph = new CHART.FastBarGraph({primaryColor: 'blue', background: 'white', marginWidth: 0});
+				info.port = port;
 			}},
-			onDisplaying: { value: function(canvas) {
-				graph = new CHART.BarGraph(canvas.getContext("2d"), 
-						{primaryColor: '#ff0000', background: 'white', marginWidth: 0});
-				info.ctx = canvas.getContext("2d");
-				info.canvas = canvas;
+			onDraw: { value: function(port, x, y, width, height ) {			
+				if (typeof(info.output) != 'undefined' && info.output.length == BUFFERSIZE/2/2) {
+					graph.refresh(port, info.output);
+				}				
 			}},
-		}),
+		})	
 	})
 	]
 }});
