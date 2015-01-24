@@ -18,6 +18,9 @@
 var dsp = require("dsp4kpr.js");
 var chart = require("charts4kpr.js");
 
+/*STYLES*/
+var labelStyle = new Style({ font:"bold 34px", color:"black", horizontal:"center", vertical:"middle" });
+
 var info = new Object();
 
 var SMOOTHING = 24;
@@ -47,6 +50,8 @@ slow.average = new Array();
 slow.peak = new Array();
 
 var smooth = new Object();
+
+var pitch = 0;
 
 Handler.bind("/gotAudio", {
 	onInvoke: function(handler, message) {
@@ -97,7 +102,7 @@ Handler.bind("/gotAudio", {
 		        signal = DSP.DSP.getChannel(DSP.DSP.RIGHT, signal);
 		        
 		        /*Do Windowing*/
-		        var window = new DSP.WindowFunction(DSP.DSP.LANCZOS, 0.25);
+		        var window = new DSP.WindowFunction(DSP.DSP.GAUSS);
 		        signal = window.process(signal);
 
 		        /*Calculate Spectrum*/
@@ -107,19 +112,28 @@ Handler.bind("/gotAudio", {
 		    	prevOutput = newOutput;
 		    	newOutput = new Array();
 		    	var output = new Array();
+		    	var maxResponse = new Object();
+		    	maxResponse.bin = null;
+		    	maxResponse.value = 0;
+		    	
 		    	for (q = 0; q < spectrum.length; q++) {
 		    		newOutput[q] = spectrum[q];
 		    	}
 		    	if (prevOutput.length == newOutput.length) {
 			    	for (q = 0; q<newOutput.length; q++) {
 			    		output[q] = (prevOutput[q]+newOutput[q] / 2)
+			    		if (output[q] > maxResponse.value) {
+			    			maxResponse.value = output[q];
+			    			maxResponse.bin = q;
+			    		}
 			    	}
 		    	}
 		    	else {
 		    		output = newOutput;
 		    	}   	
 	    		/*Call the bargraph library to update screen*/
-	    		info.output = output;
+	    		pitch = Math.round((maxResponse.bin * 32.28)) ;
+		    	info.output = output;
 	    		info.port.invalidate();	    		
 	        }
         }       
@@ -132,7 +146,7 @@ SCREEN
 */
 
 var Screen = Container.template(function($) { return {
-left:0, right:0, top:0, bottom:0, active:true,
+left:0, right:0, top:0, bottom:0, active:true, style: labelStyle,
 contents: [
 	Port($, { anchor:"PORT", left: 0, right: 0, top: 0, bottom: 0, active: true,
 		behavior: Object.create(Behavior.prototype, {
@@ -143,6 +157,7 @@ contents: [
 			onDraw: { value: function(port, x, y, width, height ) {			
 				if (typeof(info.output) != 'undefined' && info.output.length == BUFFERSIZE/2/2) {
 					graph.refresh(port, info.output);
+					port.drawLabel( pitch + "Hz", 0, 50, 320, 30);
 				}				
 			}},
 		})	
@@ -161,8 +176,7 @@ var model = application.behavior = Object.create(Object.prototype, {
             }}));
         data = {};
         
-        application.add(new Screen(data))
-
+        application.add(new Screen(data));
         application.invoke(new MessageWithObject("pins:/microphone/read?repeat=on&timer=audio&callback=/gotAudio"));
     }}
 });
