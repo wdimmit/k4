@@ -4,11 +4,20 @@ exports.pins = {
     audio: {type: "Audio", sampleRate: 8272, channels: 1, direction: "input"}
 };
 
-exports.configure = function() {
-    this.audio.init();
+exports.configure = function(configuration) {
+	this.audioConfiguration = configuration.pins.audio;
+	this.audio.init();
     this.audio.start();
 }
 
+exports.restart = function (configuration) {  
+    this.audioConfiguration.sampleRate = configuration.sampleRate; 
+	this.audio.stop();
+	this.audio.close();
+    this.audio = PINS.create(this.audioConfiguration);
+    this.audio.init();
+    this.audio.start();
+}
 exports.read = function() {
     var samples = this.audio.read(); 
     var count = samples.length / 2;
