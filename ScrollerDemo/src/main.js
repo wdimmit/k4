@@ -1,4 +1,3 @@
-// KPR Script file
 var THEME = require('themes/sample/theme');
 var SCROLLER = require('mobile/scroller');
 var SCREEN = require('mobile/screen');
@@ -27,8 +26,6 @@ var menuItems = [
     	{title: 'Core 2 Duo', button: 'Penryn'},
     	{title: 'Core i7', button: 'Sandy Bridge'}
     	];
-
-
 
 var ProcessorLine = Line.template(function($) { return { left: 0, right: 0, active: true, skin: THEME.lineSkin, 
     behavior: Object.create(Behavior.prototype, {
@@ -59,8 +56,7 @@ var ProcessorLine = Line.template(function($) { return { left: 0, right: 0, acti
      ], 
  }});
 
-
-var Screen = Container.template(function($) { return {
+var ScreenContainer = Container.template(function($) { return {
 	left:0, right:0, top:0, bottom:0,
 	contents: [
 	   		SCROLLER.VerticalScroller($, { 
@@ -73,16 +69,15 @@ var Screen = Container.template(function($) { return {
 	}});
 
 var data = new Object();
-var main = new Screen(data);
+var screen = new ScreenContainer(data);
 
 function ListBuilder(element, index, array) {
-	main.first.menu.add(new ProcessorLine(element));
+	screen.first.menu.add(new ProcessorLine(element));
 }
 
-var model = application.behavior = Object.create(Object.prototype, {
+application.behavior = Object.create(Object.prototype, {
 	onLaunch: { value: function(application) {
 		menuItems.forEach(ListBuilder);
-		
-		application.add(main);
+		application.add(screen);
 	}}
 });
