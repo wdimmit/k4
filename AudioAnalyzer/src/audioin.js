@@ -40,3 +40,4 @@ exports.read = function() {
 
     return {samples: samples, count: count, peak: peak, average: Math.round(total / count), rms: Math.round(Math.sqrt(rms / count))};
 }
+
